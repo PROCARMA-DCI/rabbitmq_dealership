@@ -175,7 +175,7 @@ def export_to_email(
         for c in contracts:
             ws.append(list(c.values()))
 
-        save_dir = "/var/www/html/exports"
+        save_dir = "/var/www/html/testing/exports"
         os.makedirs(save_dir, exist_ok=True)
 
         filename = f"{dealer_id}-{pcp_user_id}-export_{datetime.now().strftime('%d-%m-%Y_%H-%M-%S')}.xlsx"
@@ -183,7 +183,7 @@ def export_to_email(
         wb.save(file_path)
 
         # Public URL (don’t include the local file path)
-        public_url = f"{BASE_URL}/exports/{filename}"
+        public_url = f"{BASE_URL}/testing/exports/{filename}"
 
         # 4. Prepare email
         subject = "Coverage Export File"

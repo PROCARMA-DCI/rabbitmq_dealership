@@ -74,5 +74,5 @@ def send_test_message():
 
 
 if __name__ == "__main__":
-    export_to_email()
-    # send_test_message()
+    # export_to_email()
+    send_test_message()

@@ -5,6 +5,7 @@ Simple file-based logging only
 """
 from utils.action.api_call import request_AUTTO, request_SOAP
 from utils.action.db_query_call import (
+    export_to_email,
     get_api_credentials,
     get_contract_details,
     get_coupons_details,
@@ -203,6 +204,7 @@ class ServiceRedemptionProcessor:
                     contractDetails, coupansDetails, apiCredentials
                 )
                 print("AUTTO \n", json.dumps(result_autto, indent=2, default=str))
+                # export_to_email(DealerID,ID,VIN,CustomerLName,CustomerEmail,CoverageName)
                 # result_soap = request_SOAP(
                 #     apiCredentials, contractDetails, coupansDetails
                 # )
