@@ -203,10 +203,10 @@ class ServiceRedemptionProcessor:
                     contractDetails, coupansDetails, apiCredentials
                 )
                 print("AUTTO \n", json.dumps(result_autto, indent=2, default=str))
-                result_soap = request_SOAP(
-                    apiCredentials, contractDetails, coupansDetails
-                )
-                print("SOAP \n", json.dumps(result_soap, indent=2, default=str))
+                # result_soap = request_SOAP(
+                #     apiCredentials, contractDetails, coupansDetails
+                # )
+                # print("SOAP \n", json.dumps(result_soap, indent=2, default=str))
             # ========
             # LOGGING
             # ========

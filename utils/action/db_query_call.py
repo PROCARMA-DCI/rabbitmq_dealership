@@ -1,22 +1,16 @@
-import datetime
+from datetime import datetime, timezone
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
-import json
 import os
 from openpyxl import Workbook
-import smtplib
 from typing import List
 from sqlmodel import create_engine, Session, text
 from config import (
     DATABASE_URL,
-    SENDGRID_SMTP,
-    SENDGRID_USER,
-    SENDGRID_PASS,
     BASE_URL,
-    DEFAULT_FROM_EMAIL,
 )
-from utils.helpers import Print
-
+from utils.helpers import formatDate
+from utils.consumer_utils import send_email
 
 # ✅ Setup engine
 DATABASE_URL = DATABASE_URL
@@ -119,30 +113,11 @@ def get_api_credentials(ID: int = 1):
         return [dict(r) for r in rows]  # multiple rows → list of dicts
 
 
-def send_email(to_email: str, subject: str, html_content: str) -> bool:
-    """Send email via SendGrid SMTP"""
-    try:
-        msg = MIMEMultipart()
-        msg["From"] = DEFAULT_FROM_EMAIL
-        msg["To"] = to_email
-        msg["Subject"] = subject
-        msg.attach(MIMEText(html_content, "html"))
-
-        with smtplib.SMTP(SENDGRID_SMTP, 587) as server:
-            server.starttls()
-            server.login(SENDGRID_USER, SENDGRID_PASS)
-            server.send_message(msg)
-        return True
-    except Exception as e:
-        print(f"❌ Email sending failed: {e}")
-        return False
-
-
-def export_contracts(coverage_name, dealer_id, vin=None, last_name=None):
+def export_contracts(dealer_id):
     """Equivalent of ftpcoverages_mdl->export() in PHP"""
     query = text(
         """
-        SELECT ContractID, DealerID, VIN, CustomerLName, CoverageName, SaleDate
+        SELECT ContractID, DealerID, VIN, SaleDate
         FROM tbl_contract
         WHERE DealerID = :dealer_id
     """
@@ -150,89 +125,98 @@ def export_contracts(coverage_name, dealer_id, vin=None, last_name=None):
 
     with Session(engine) as session:
         result = session.execute(query, {"dealer_id": dealer_id})
-        Print(result, "result=====================")
         rows = result.mappings().all()
         return [dict(r) for r in rows]
 
 
-def export_to_email():
-    rows = {}
+def export_to_email(
+    DealerID: int = 2975,
+    ID: int = 23220,
+    VIN: str = "5TFJA5DBXPX062422",
+    LastName: str = "Procarma",
+    Email: str = "support@procarma.com",
+    CoverageName: int = 1,
+):
     with Session(engine) as session:
-        # 1. Fetch all records where SendEmail = 0
-        rows = [
-            {
-                "ID": 23188,
-                "Email": "support@procarma.com",
-                "VIN": "5TFJA5DBXPX062422",
-                "DealerID": 2975,
-                "LastName": "Procarma",
-                "CoverageName": 1,
-            }
-        ]
-        if not rows:
+
+        if not Email:
             print("No pending email exports.")
             return
 
-        for row in rows:
-            email = row["Email"]
-            if not email or "@" not in email:
-                continue
+        dealer_id = DealerID
+        pcp_user_id = 1
+        matching = 0
 
-            coverage_name = row.get("CoverageName")
-            dealer_id = row.get("DealerID")
-            vin = row.get("VIN", "")
-            last_name = row.get("LastName", "")
-            pcp_user_id = row.get("pcp_user_id", "1")
-            matching = row.get("Matching", 0)
+        if matching == 2:  # reset VIN & LastName
+            vin, last_name = "", ""
 
-            if matching == 2:  # reset VIN & LastName
-                vin, last_name = "", ""
+        # 2. Fetch contracts
+        contracts = export_contracts(dealer_id)
+        contracts = [
+            {
+                **item,
+                "VIN": VIN,
+                "CustomerLName": LastName,
+                "CustomerEmail": Email,
+                "SaleDate": formatDate(item.get("SaleDate")),
+            }
+            for item in contracts
+        ]
+        print("contracts", contracts)
 
-            # 2. Fetch contracts
-            contracts = export_contracts(coverage_name, dealer_id, vin, last_name)
-            if not contracts:
-                continue
+        if not contracts:
+            print("No contracts found.")
+            return
 
-            # 3. Build Excel file
-            wb = Workbook()
-            ws = wb.active
-            ws.append(list(contracts[0].keys()))  # header row
-            for c in contracts:
-                ws.append(list(c.values()))
+        # 3. Build Excel file
+        wb = Workbook()
+        ws = wb.active
+        ws.append(list(contracts[0].keys()))  # header row
+        for c in contracts:
+            ws.append(list(c.values()))
 
-            filename = f"exports/{dealer_id}-{pcp_user_id}-export_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.xlsx"
-            os.makedirs(os.path.dirname(filename), exist_ok=True)
-            wb.save(filename)
+        save_dir = "/var/www/html/testing/exports"
+        os.makedirs(save_dir, exist_ok=True)
 
-            # 4. Prepare email
-            subject = "Coverage Export File"
-            email_msg = f"""
-            Hi,<br><br>
-            Your data is available on this link 
-            <a href="{BASE_URL}{filename}" target="_blank">Download</a>.<br><br>
-            Please download from here. This will be retained on server for 7 days.<br><br>
-            Thanks.<br>
-            PROCARMA Team
-            """
+        filename = f"{dealer_id}-{pcp_user_id}-export_{datetime.now().strftime('%d-%m-%Y_%H-%M-%S')}.xlsx"
+        file_path = os.path.join(save_dir, filename)
+        wb.save(file_path)
 
-            print(f"{email} | Following Message Sent By Customer:\n{email_msg}")
+        # Public URL (don’t include the local file path)
+        public_url = f"{BASE_URL}/testing/exports/{filename}"
 
-            if send_email(email, subject, email_msg):
-                print("✅ Email sent successfully")
-                # 5. Update record in DB
-                session.exec(
-                    text(
-                        """
-                        UPDATE mypcp_roadvant.tbl_emailexport
-                        SET SendEmail=1, EmailSentDate=:date
-                        WHERE ID=:id
+        # 4. Prepare email
+        subject = "Coverage Export File"
+        email_msg = f"""
+        Hi,<br><br>
+        Your data is available on this link
+        <a href="{public_url}" target="_blank">Download</a>.<br><br>
+        Please download from here. This will be retained on server for 7 days.<br><br>
+        Thanks.<br>
+        PROCARMA Team
+        """
+
+        if send_email(Email, subject, email_msg):
+            print("✅ Email sent successfully")
+            # 5. Update record in DB
+            result = session.execute(
+                text(
                     """
-                    ),
-                    {
-                        "date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                        "id": row["ID"],
-                    },
-                )
-                session.commit()
-            else:
-                print("❌ Email not sent successfully")
+                UPDATE mypcp_roadvant.tbl_emailexport
+                SET SendEmail=1, EmailSentDate=:date
+                WHERE ID=:id
+                """
+                ),
+                {
+                    "date": datetime.now().strftime("%d-%m-%Y %H:%M:%S"),
+                    "id": ID,
+                },
+            )
+
+            print(
+                f"🔎 Rows updated: {result.rowcount}"
+            )  # check how many rows were updated
+
+            session.commit()
+        else:
+            print("❌ Email not sent successfully")
