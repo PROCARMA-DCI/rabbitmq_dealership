@@ -106,6 +106,7 @@ def request_SOAP(apiCredentials: dict, contractDetails: dict, coupansDetails: di
                 <Claim_RoadSideSO></Claim_RoadSideSO>
                  <Shop_EntityNumber>SHOP001</Shop_EntityNumber>
                   <Claim_PartLines>
+        
                  {  "".join(
                         f"""
                         <ClaimImportPartLine>
@@ -122,6 +123,7 @@ def request_SOAP(apiCredentials: dict, contractDetails: dict, coupansDetails: di
                         for item in coupansDetails
                     )
                 }
+              
                    </Claim_PartLines>
               </InsertClaimRequest>
               </InsertClaim>
