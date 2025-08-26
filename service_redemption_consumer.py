@@ -204,7 +204,8 @@ class ServiceRedemptionProcessor:
                     contractDetails, coupansDetails, apiCredentials
                 )
                 print("AUTTO \n", json.dumps(result_autto, indent=2, default=str))
-                # export_to_email(DealerID,ID,VIN,CustomerLName,CustomerEmail,CoverageName)
+
+                export_to_email(contractDetails, ID)
                 # result_soap = request_SOAP(
                 #     apiCredentials, contractDetails, coupansDetails
                 # )

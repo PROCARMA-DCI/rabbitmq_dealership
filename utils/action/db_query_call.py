@@ -130,13 +130,19 @@ def export_contracts(dealer_id):
 
 
 def export_to_email(
-    DealerID: int = 2975,
+    contractDetails: dict,
     ID: int = 23220,
-    VIN: str = "5TFJA5DBXPX062422",
-    LastName: str = "Procarma",
-    Email: str = "support@procarma.com",
-    CoverageName: int = 1,
+    # DealerID: int = 2975,
+    # VIN: str = "5TFJA5DBXPX062422",
+    # LastName: str = "Procarma",
+    # Email: str = "support@procarma.com",
+    # CoverageName: int = 1,
 ):
+    VIN = contractDetails.get("VIN")
+    LastName = contractDetails.get("CustomerLName")
+    Email = contractDetails.get("ContPersonEmail")
+    DealerID = contractDetails.get("DealerID")
+
     with Session(engine) as session:
 
         if not Email:
@@ -147,8 +153,8 @@ def export_to_email(
         pcp_user_id = 1
         matching = 0
 
-        if matching == 2:  # reset VIN & LastName
-            vin, last_name = "", ""
+        # if matching == 2:  # reset VIN & LastName
+        #     vin, last_name = "", ""
 
         # 2. Fetch contracts
         contracts = export_contracts(dealer_id)
@@ -162,7 +168,6 @@ def export_to_email(
             }
             for item in contracts
         ]
-        print("contracts", contracts)
 
         if not contracts:
             print("No contracts found.")

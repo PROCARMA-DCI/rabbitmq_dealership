@@ -44,7 +44,7 @@ def send_email(to_email: str, subject: str, html_content: str) -> bool:
     try:
         msg = MIMEMultipart()
         msg["From"] = DEFAULT_FROM_EMAIL
-        msg["To"] = "sbshamail123@gmail.com"
+        msg["To"] = to_email
         msg["Subject"] = subject
         msg.attach(MIMEText(html_content, "html"))
 
