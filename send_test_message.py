@@ -15,7 +15,6 @@ from config import (
     RABBITMQ_VHOST,
     SECRET_KEY,
 )
-from utils.action.db_query_call import export_to_email
 
 
 def send_test_message():
@@ -74,5 +73,5 @@ def send_test_message():
 
 
 if __name__ == "__main__":
-    # export_to_email()
+
     send_test_message()

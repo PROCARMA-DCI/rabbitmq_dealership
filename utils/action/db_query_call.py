@@ -9,7 +9,8 @@ from config import (
     DATABASE_URL,
     BASE_URL,
 )
-from utils.helpers import formatDate
+from utils.action.ftp_coverages import export
+from utils.helpers import formatDate, Print
 from utils.consumer_utils import send_email
 
 # ✅ Setup engine
@@ -113,7 +114,7 @@ def get_api_credentials(ID: int = 1):
         return [dict(r) for r in rows]  # multiple rows → list of dicts
 
 
-def export_contracts(dealer_id):
+def export_contracts(dealer_id, VIN, LastName, Email):
     """Equivalent of ftpcoverages_mdl->export() in PHP"""
     query = text(
         """
@@ -126,6 +127,16 @@ def export_contracts(dealer_id):
     with Session(engine) as session:
         result = session.execute(query, {"dealer_id": dealer_id})
         rows = result.mappings().all()
+        rows = [
+            {
+                **item,
+                "VIN": VIN,
+                "CustomerLName": LastName,
+                "CustomerEmail": Email,
+                "SaleDate": formatDate(item.get("SaleDate")),
+            }
+            for item in rows
+        ]
         return [dict(r) for r in rows]
 
 
@@ -136,7 +147,7 @@ def export_to_email(
     # VIN: str = "5TFJA5DBXPX062422",
     # LastName: str = "Procarma",
     # Email: str = "support@procarma.com",
-    # CoverageName: int = 1,
+    CoverageName: int = 1,
 ):
     VIN = contractDetails.get("VIN")
     LastName = contractDetails.get("CustomerLName")
@@ -156,28 +167,21 @@ def export_to_email(
         # if matching == 2:  # reset VIN & LastName
         #     vin, last_name = "", ""
 
-        # 2. Fetch contracts
-        contracts = export_contracts(dealer_id)
-        contracts = [
-            {
-                **item,
-                "VIN": VIN,
-                "CustomerLName": LastName,
-                "CustomerEmail": Email,
-                "SaleDate": formatDate(item.get("SaleDate")),
-            }
-            for item in contracts
-        ]
+        # 2. Fetch Reports
+        if CoverageName:
+            report_data = export(CoverageName)
+        else:
+            report_data = export_contracts(dealer_id, VIN, LastName, Email)
 
-        if not contracts:
+        if not report_data:
             print("No contracts found.")
             return
 
         # 3. Build Excel file
         wb = Workbook()
         ws = wb.active
-        ws.append(list(contracts[0].keys()))  # header row
-        for c in contracts:
+        ws.append(list(report_data[0].keys()))  # header row
+        for c in report_data:
             ws.append(list(c.values()))
 
         save_dir = "/var/www/html/testing/exports"

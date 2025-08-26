@@ -3,7 +3,7 @@
 Service Redemption Consumer for Dealership System - NO DATABASE VERSION
 Simple file-based logging only
 """
-from utils.action.api_call import request_AUTTO
+from utils.action.api_call import request_AUTTO, request_SOAP
 from utils.action.db_query_call import (
     export_to_email,
     get_api_credentials,

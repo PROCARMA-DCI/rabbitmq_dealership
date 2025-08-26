@@ -6,7 +6,7 @@
 from typing import Any, Dict, List, Optional, Union
 from sqlmodel import create_engine, Session, text
 from config import DATABASE_URL
-
+from utils.helpers import Print
 
 # --- Engine ---
 engine = create_engine(DATABASE_URL, echo=True)
@@ -18,7 +18,7 @@ engine = create_engine(DATABASE_URL, echo=True)
 def _fetch_all_dicts(
     session: Session, sql: str, params: Dict[str, Any]
 ) -> List[Dict[str, Any]]:
-    result = session.exec(text(sql), params).mappings().all()
+    result = session.execute(text(sql), params).mappings().all()
     return [dict(r) for r in result]
 
 
@@ -886,7 +886,6 @@ def roadvant(
         { _maybe_limit_offset(limit, offset) }
         """
         return _fetch_all_dicts(session, sql, {})
-
     sql = f"""
     SELECT DISTINCT
       CASE
@@ -966,72 +965,82 @@ def roadvant_count(
 
 
 def export(
-    session: Session,
-    CoverageName: int,
-    DealerID: int,
+    CoverageName: int = 1,
+    DealerID: int = "2975",
     VIN: str = "",
     LastName: str = "",
     limit: Union[int, str] = 100,
     offset: int = 0,
 ) -> List[Dict[str, Any]]:
-    """
-    Mirrors the PHP:
-      - If no VIN and no LastName:
-          return raw table rows (no dealer filter), optionally limited.
-      - Else:
-          route to the corresponding coverage_* function with DealerID and filters.
-    CoverageName mapping:
-        1 = roadvant
-        2 = smartautocare
-        3 = amynta_warranty_solution
-        4 = cars_coverage_solution
-        5 = careguard
-        6 = nationguard
-        7 = tws
-        8 = assurant
-    """
-    if VIN == "" and LastName == "":
-        lo = _maybe_limit_offset(limit, offset)
-        table_sql = {
-            1: f"SELECT * FROM mypcp_roadvant.tbl_roadvant {lo}",
-            2: f"SELECT * FROM smartautocare.tbl_smart_autocare {lo}",
-            3: f"SELECT * FROM mypcp_roadvant.tbl_amynta_warranty_solution {lo}",
-            4: f"SELECT * FROM mypcp_roadvant.tbl_cars_coverage {lo}",
-            5: f"SELECT * FROM mypcp_roadvant.tbl_careguard {lo}",
-            6: f"SELECT * FROM mycp_risk.mypcp_roadvant.tbl_nationgard {lo}".replace(
-                "mycp_risk.", ""
-            ),
-            7: f"SELECT * FROM mypcp_roadvant.tbl_tws {lo}",
-            8: f"SELECT * FROM mypcp_roadvant.tbl_assurant {lo}",
-        }
-        sql = table_sql.get(int(CoverageName))
-        if not sql:
-            return []
-        return _fetch_all_dicts(session, sql, {})
+    with Session(engine) as session:
+        """
+        Mirrors the PHP:
+        - If no VIN and no LastName:
+            return raw table rows (no dealer filter), optionally limited.
+        - Else:
+            route to the corresponding coverage_* function with DealerID and filters.
+        CoverageName mapping:
+            1 = roadvant
+            2 = smartautocare
+            3 = amynta_warranty_solution
+            4 = cars_coverage_solution
+            5 = careguard
+            6 = nationguard
+            7 = tws
+            8 = assurant
+        """
+        if VIN == "" and LastName == "":
+            lo = _maybe_limit_offset(limit, offset)
+            print("lo", lo)
+            table_sql = {
+                1: f"SELECT * FROM mypcp_roadvant.tbl_roadvant {lo}",
+                2: f"SELECT * FROM smartautocare.tbl_smart_autocare {lo}",
+                3: f"SELECT * FROM mypcp_roadvant.tbl_amynta_warranty_solution {lo}",
+                4: f"SELECT * FROM mypcp_roadvant.tbl_cars_coverage {lo}",
+                5: f"SELECT * FROM mypcp_roadvant.tbl_careguard {lo}",
+                6: f"SELECT * FROM mycp_risk.mypcp_roadvant.tbl_nationgard {lo}".replace(
+                    "mycp_risk.", ""
+                ),
+                7: f"SELECT * FROM mypcp_roadvant.tbl_tws {lo}",
+                8: f"SELECT * FROM mypcp_roadvant.tbl_assurant {lo}",
+            }
+            sql = table_sql.get(int(CoverageName))
+            if not sql:
+                return []
+            return _fetch_all_dicts(session, sql, {})
 
-    # With filters: route
-    if CoverageName == 1:
-        return roadvant(session, DealerID, VIN, LastName, limit, offset)
-    elif CoverageName == 2:
-        return smart_autocare(session, DealerID, VIN, LastName, limit, offset)
-    elif CoverageName == 3:
-        return amynta_warranty_solution(session, DealerID, VIN, LastName, limit, offset)
-    elif CoverageName == 4:
-        return cars_coverage_solution(session, DealerID, VIN, LastName, limit, offset)
-    elif CoverageName == 5:
-        return careguard_coverage_solution(
-            session, DealerID, VIN, LastName, limit, offset
-        )
-    elif CoverageName == 6:
-        return nationguard_coverage_solution(
-            session, DealerID, VIN, LastName, limit, offset
-        )
-    elif CoverageName == 7:
-        return tws_coverage_solution(session, DealerID, VIN, LastName, limit, offset)
-    elif CoverageName == 8:
-        return assurant_coverage_solution(
-            session, DealerID, VIN, LastName, limit, offset
-        )
+        # With filters: route
+        data = None
+
+        if CoverageName == 1:
+            return roadvant(session, DealerID, VIN, LastName, limit, offset)
+
+        elif CoverageName == 2:
+            return smart_autocare(session, DealerID, VIN, LastName, limit, offset)
+        elif CoverageName == 3:
+            return amynta_warranty_solution(
+                session, DealerID, VIN, LastName, limit, offset
+            )
+        elif CoverageName == 4:
+            return cars_coverage_solution(
+                session, DealerID, VIN, LastName, limit, offset
+            )
+        elif CoverageName == 5:
+            return careguard_coverage_solution(
+                session, DealerID, VIN, LastName, limit, offset
+            )
+        elif CoverageName == 6:
+            return nationguard_coverage_solution(
+                session, DealerID, VIN, LastName, limit, offset
+            )
+        elif CoverageName == 7:
+            return tws_coverage_solution(
+                session, DealerID, VIN, LastName, limit, offset
+            )
+        elif CoverageName == 8:
+            return assurant_coverage_solution(
+                session, DealerID, VIN, LastName, limit, offset
+            )
 
     return []
 
