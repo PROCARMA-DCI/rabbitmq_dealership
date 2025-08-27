@@ -39,7 +39,7 @@ def save_message(
 
 
 def send_email(to_email: str, subject: str, html_content: str) -> bool:
-    print(f"{to_email} | Following Message Sent By Customer:\n{html_content}")
+    # print(f"{to_email} | Following Message Sent By Customer:\n{html_content}")
     """Send email via SendGrid SMTP"""
     try:
         msg = MIMEMultipart()
